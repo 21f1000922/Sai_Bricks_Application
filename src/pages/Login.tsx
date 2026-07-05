@@ -4,7 +4,7 @@ import { supabase } from "../data/supabase";
 import { Field } from "../components/ui";
 
 export default function Login() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +23,24 @@ export default function Login() {
   };
 
   return (
-    <main className="page" style={{ paddingTop: 60 }}>
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
+    <main className="page" style={{ paddingTop: 16 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          className="lang-btn"
+          onClick={() => void i18n.changeLanguage(i18n.language === "te" ? "en" : "te")}
+        >
+          {i18n.language === "te" ? (
+            <>
+              <b>తె</b> | EN
+            </>
+          ) : (
+            <>
+              తె | <b>EN</b>
+            </>
+          )}
+        </button>
+      </div>
+      <div style={{ textAlign: "center", marginBottom: 24, marginTop: 28 }}>
         <div className="mark" style={{ width: 56, height: 56, borderRadius: 14, background: "var(--acc)", color: "var(--on-acc)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 22 }}>
           SB
         </div>
