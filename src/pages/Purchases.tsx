@@ -4,15 +4,16 @@ import { useTranslation } from "react-i18next";
 import { useData, useDb } from "../data/DataContext";
 import { purchaseDue, purchaseTotal, round2 } from "../lib/calc";
 import { fmtDate, fmtMoney, todayStr, uid } from "../lib/format";
-import type { PayMode } from "../data/types";
-import { Avatar, BackBar, Empty, Field, ModeChips, Sheet } from "../components/ui";
+import type { PayMode, Purchase } from "../data/types";
+import { Avatar, BackBar, DeleteButton, Empty, Field, ModeChips, Sheet } from "../components/ui";
 
 export default function Purchases() {
   const { t, i18n } = useTranslation();
   const db = useDb();
-  const { addRow } = useData();
+  const { addRow, updateRow, removeRow } = useData();
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("new") === "1");
+  const [editId, setEditId] = useState<string | null>(null);
 
   const [item, setItem] = useState("");
   const [supplierId, setSupplierId] = useState("");
@@ -31,8 +32,35 @@ export default function Purchases() {
   const total = round2((Number(qty) || 0) * (Number(unitPrice) || 0));
   const valid = item.trim() && Number(qty) > 0 && Number(unitPrice) > 0;
 
+  const reset = () => {
+    setItem("");
+    setSupplierId("");
+    setNewSupplier("");
+    setUnit("");
+    setQty("");
+    setUnitPrice("");
+    setPaid("");
+    setMode("cash");
+    setDate(todayStr());
+  };
+
+  const openEdit = (p: Purchase) => {
+    setEditId(p.id);
+    setItem(p.itemName);
+    setSupplierId(p.supplierId ?? "");
+    setUnit(p.unit);
+    setQty(String(p.qty));
+    setUnitPrice(String(p.unitPrice));
+    setPaid(String(p.amountPaid));
+    setMode(p.mode);
+    setDate(p.date);
+    setOpen(true);
+  };
+
   const close = () => {
     setOpen(false);
+    setEditId(null);
+    reset();
     if (params.get("new")) setParams({}, { replace: true });
   };
 
@@ -44,8 +72,8 @@ export default function Purchases() {
       sid = uid();
       await addRow("suppliers", { id: sid, name: newSupplier.trim(), active: true });
     }
-    await addRow("purchases", {
-      id: uid(),
+    const row: Purchase = {
+      id: editId ?? uid(),
       itemName: item.trim(),
       supplierId: sid === "__new" ? undefined : sid,
       unit: unit.trim(),
@@ -54,12 +82,15 @@ export default function Purchases() {
       amountPaid: Number(paid) || 0,
       mode,
       date
-    });
+    };
+    if (editId) await updateRow("purchases", row);
+    else await addRow("purchases", row);
     setSaving(false);
-    setItem("");
-    setQty("");
-    setUnitPrice("");
-    setPaid("");
+    close();
+  };
+
+  const del = async () => {
+    if (editId) await removeRow("purchases", editId);
     close();
   };
 
@@ -83,7 +114,7 @@ export default function Purchases() {
           const sup = db.suppliers.find((s) => s.id === p.supplierId);
           const due = purchaseDue(p);
           return (
-            <div className="li" key={p.id}>
+            <div className="li" key={p.id} style={{ cursor: "pointer" }} onClick={() => openEdit(p)}>
               <Avatar name={p.itemName} />
               <div className="m">
                 {p.itemName}
@@ -110,7 +141,7 @@ export default function Purchases() {
       </div>
 
       {open && (
-        <Sheet title={t("purchase.newPurchase")} onClose={close}>
+        <Sheet title={editId ? t("common.edit") : t("purchase.newPurchase")} onClose={close}>
           <Field label={t("purchase.item")}>
             <input value={item} onChange={(e) => setItem(e.target.value)} />
           </Field>
@@ -167,6 +198,7 @@ export default function Purchases() {
           <button className="btn" disabled={saving || !valid} onClick={() => void save()}>
             {t("common.save")}
           </button>
+          {editId && <DeleteButton onDelete={del} />}
         </Sheet>
       )}
     </>

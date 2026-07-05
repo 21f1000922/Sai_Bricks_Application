@@ -34,17 +34,25 @@ create table profiles (
   primary key (user_id, factory_id)
 );
 
--- When a signed-in user creates their factory, make them its owner.
-create or replace function public.handle_new_factory()
-returns trigger language plpgsql security definer set search_path = public as $$
+-- First-login bootstrap: create a factory + owner membership atomically and
+-- return the factory id. SECURITY DEFINER so it bypasses the insert-RLS
+-- chicken-and-egg (a user cannot be a member of a factory that does not exist
+-- yet, but the insert policy would need that membership to pass). The app calls
+-- this via RPC; it is idempotent — a returning user just gets their factory id.
+create or replace function public.bootstrap_factory()
+returns uuid language plpgsql security definer set search_path = public as $$
+declare fid uuid;
 begin
-  insert into profiles (user_id, factory_id, role) values (auth.uid(), new.id, 'owner');
-  return new;
+  select factory_id into fid from profiles where user_id = auth.uid() limit 1;
+  if fid is not null then
+    return fid;
+  end if;
+  insert into factories default values returning id into fid;
+  insert into profiles (user_id, factory_id, role) values (auth.uid(), fid, 'owner');
+  return fid;
 end $$;
 
-create trigger on_factory_created
-  after insert on factories
-  for each row execute function public.handle_new_factory();
+grant execute on function public.bootstrap_factory() to authenticated;
 
 -- Factories the current user belongs to (used by every policy below).
 create or replace function public.user_factory_ids()
@@ -231,10 +239,10 @@ alter table profiles enable row level security;
 
 create policy "members read their factories" on factories
   for select using (id in (select public.user_factory_ids()));
-create policy "any signed-in user may create a factory" on factories
-  for insert with check (auth.uid() is not null);
 create policy "only owners change factory settings" on factories
   for update using (public.user_is_owner(id));
+-- Factory creation happens only through bootstrap_factory() (SECURITY DEFINER),
+-- so there is deliberately no direct INSERT policy for the authenticated role.
 
 create policy "users read their own memberships" on profiles
   for select using (user_id = auth.uid());

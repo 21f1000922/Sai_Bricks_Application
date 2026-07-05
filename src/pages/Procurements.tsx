@@ -3,14 +3,16 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData, useDb } from "../data/DataContext";
 import { fmtDate, fmtMoney, todayStr, uid } from "../lib/format";
-import { Avatar, BackBar, Empty, Field, Sheet } from "../components/ui";
+import type { Procurement } from "../data/types";
+import { Avatar, BackBar, DeleteButton, Empty, Field, Sheet } from "../components/ui";
 
 export default function Procurements() {
   const { t, i18n } = useTranslation();
   const db = useDb();
-  const { addRow } = useData();
+  const { addRow, updateRow, removeRow } = useData();
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("new") === "1");
+  const [editId, setEditId] = useState<string | null>(null);
 
   const [item, setItem] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -23,28 +25,53 @@ export default function Procurements() {
   const list = [...db.procurements].sort((a, b) => b.date.localeCompare(a.date));
   const valid = item.trim() && Number(price) > 0;
 
+  const reset = () => {
+    setItem("");
+    setEmployeeId("");
+    setQty("");
+    setPrice("");
+    setReason("");
+    setDate(todayStr());
+  };
+
+  const openEdit = (p: Procurement) => {
+    setEditId(p.id);
+    setItem(p.itemName);
+    setEmployeeId(p.employeeId ?? "");
+    setQty(p.qty != null ? String(p.qty) : "");
+    setPrice(String(p.totalPrice));
+    setReason(p.reason);
+    setDate(p.date);
+    setOpen(true);
+  };
+
   const close = () => {
     setOpen(false);
+    setEditId(null);
+    reset();
     if (params.get("new")) setParams({}, { replace: true });
   };
 
   const save = async () => {
     if (!valid) return;
     setSaving(true);
-    await addRow("procurements", {
-      id: uid(),
+    const row: Procurement = {
+      id: editId ?? uid(),
       itemName: item.trim(),
       employeeId: employeeId || undefined,
       qty: Number(qty) || undefined,
       totalPrice: Number(price),
       reason: reason.trim(),
       date
-    });
+    };
+    if (editId) await updateRow("procurements", row);
+    else await addRow("procurements", row);
     setSaving(false);
-    setItem("");
-    setQty("");
-    setPrice("");
-    setReason("");
+    close();
+  };
+
+  const del = async () => {
+    if (editId) await removeRow("procurements", editId);
     close();
   };
 
@@ -56,7 +83,7 @@ export default function Procurements() {
         {list.map((p) => {
           const emp = db.employees.find((e) => e.id === p.employeeId);
           return (
-            <div className="li" key={p.id}>
+            <div className="li" key={p.id} style={{ cursor: "pointer" }} onClick={() => openEdit(p)}>
               <Avatar name={p.itemName} />
               <div className="m">
                 {p.itemName}
@@ -78,7 +105,7 @@ export default function Procurements() {
       </div>
 
       {open && (
-        <Sheet title={t("proc.newProc")} onClose={close}>
+        <Sheet title={editId ? t("common.edit") : t("proc.newProc")} onClose={close}>
           <Field label={t("proc.item")}>
             <input value={item} onChange={(e) => setItem(e.target.value)} />
           </Field>
@@ -111,6 +138,7 @@ export default function Procurements() {
           <button className="btn" disabled={saving || !valid} onClick={() => void save()}>
             {t("common.save")}
           </button>
+          {editId && <DeleteButton onDelete={del} />}
         </Sheet>
       )}
     </>

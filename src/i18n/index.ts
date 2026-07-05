@@ -9,6 +9,9 @@ const en = {
     cancel: "Cancel",
     add: "Add",
     edit: "Edit",
+    delete: "Delete",
+    confirmDelete: "Tap again to delete",
+    deleted: "Deleted",
     date: "Date",
     amount: "Amount",
     mode: "Mode",
@@ -65,6 +68,7 @@ const en = {
     sold: "Sold till now",
     damaged: "Damaged",
     recordDamaged: "Record damaged bricks",
+    history: "Damage records",
     lastDamage: "Last damage entry: {{qty}} bricks on {{date}}"
   },
   ledger: {
@@ -113,6 +117,7 @@ const en = {
     addPayment: "Add payment",
     payments: "Payments",
     saveSale: "Save sale",
+    editSale: "Edit sale",
     totalLine: "Bricks {{qty}} × {{rate}}",
     loadingLine: "Loading",
     dues: "Dues",
@@ -192,6 +197,17 @@ const en = {
     signUp: "Create account",
     hint: "First time? Create the owner account with your email."
   },
+  history: {
+    title: "History",
+    all: "All",
+    sales: "Sales",
+    production: "Production",
+    wages: "Wages",
+    purchases: "Purchases",
+    expenses: "Expenses",
+    damage: "Damage",
+    paymentReceived: "Payment received"
+  },
   more: { title: "More" }
 };
 
@@ -203,6 +219,9 @@ const te: typeof en = {
     cancel: "రద్దు",
     add: "జోడించు",
     edit: "మార్చు",
+    delete: "తొలగించు",
+    confirmDelete: "తొలగించడానికి మళ్ళీ నొక్కండి",
+    deleted: "తొలగించబడింది",
     date: "తేదీ",
     amount: "మొత్తం",
     mode: "విధానం",
@@ -259,6 +278,7 @@ const te: typeof en = {
     sold: "ఇప్పటివరకు అమ్మినవి",
     damaged: "పాడైనవి",
     recordDamaged: "పాడైన ఇటుకలు నమోదు",
+    history: "పాడైన ఇటుకల నమోదులు",
     lastDamage: "చివరి నమోదు: {{qty}} ఇటుకలు, {{date}}"
   },
   ledger: {
@@ -307,6 +327,7 @@ const te: typeof en = {
     addPayment: "చెల్లింపు జోడించు",
     payments: "చెల్లింపులు",
     saveSale: "అమ్మకం సేవ్ చేయి",
+    editSale: "అమ్మకం మార్చు",
     totalLine: "ఇటుకలు {{qty}} × {{rate}}",
     loadingLine: "లోడింగ్",
     dues: "బాకీలు",
@@ -385,6 +406,17 @@ const te: typeof en = {
     signIn: "సైన్ ఇన్",
     signUp: "ఖాతా సృష్టించు",
     hint: "మొదటిసారా? మీ ఇమెయిల్‌తో యజమాని ఖాతా సృష్టించండి."
+  },
+  history: {
+    title: "చరిత్ర",
+    all: "అన్నీ",
+    sales: "అమ్మకాలు",
+    production: "ఉత్పత్తి",
+    wages: "కూలీలు",
+    purchases: "కొనుగోళ్లు",
+    expenses: "ఖర్చులు",
+    damage: "పాడైనవి",
+    paymentReceived: "చెల్లింపు వచ్చింది"
   },
   more: { title: "మరిన్ని" }
 };

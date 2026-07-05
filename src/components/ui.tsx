@@ -1,8 +1,24 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { PayMode } from "../data/types";
 import { fmtMoney } from "../lib/format";
+
+/** Delete button that requires a second tap to confirm, to avoid accidents. */
+export function DeleteButton({ onDelete }: { onDelete: () => void | Promise<void> }) {
+  const { t } = useTranslation();
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn ghost"
+      style={{ color: "var(--bad)", borderColor: "var(--bad)", marginTop: 10 }}
+      onClick={() => (armed ? void onDelete() : setArmed(true))}
+    >
+      {armed ? t("common.confirmDelete") : t("common.delete")}
+    </button>
+  );
+}
 
 export function Field({
   label,

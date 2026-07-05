@@ -3,25 +3,39 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData, useDb } from "../data/DataContext";
 import { stock } from "../lib/calc";
-import { fmtBricks, fmtDateFull, todayStr, uid } from "../lib/format";
-import { BackBar, Field, Sheet } from "../components/ui";
+import { fmtBricks, fmtDate, todayStr, uid } from "../lib/format";
+import type { DamageEntry } from "../data/types";
+import { BackBar, DeleteButton, Empty, Field, Sheet } from "../components/ui";
 
 export default function Stock() {
   const { t, i18n } = useTranslation();
   const db = useDb();
-  const { addRow } = useData();
+  const { addRow, updateRow, removeRow } = useData();
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(params.get("new") === "1");
+  const [editId, setEditId] = useState<string | null>(null);
   const [qty, setQty] = useState("");
   const [date, setDate] = useState(todayStr());
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
   const st = stock(db.workEntries, db.sales, db.damageEntries);
-  const lastDamage = [...db.damageEntries].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const damageList = [...db.damageEntries].sort((a, b) => b.date.localeCompare(a.date));
+
+  const openEdit = (d: DamageEntry) => {
+    setEditId(d.id);
+    setQty(String(d.qty));
+    setDate(d.date);
+    setNote(d.note ?? "");
+    setOpen(true);
+  };
 
   const close = () => {
     setOpen(false);
+    setEditId(null);
+    setQty("");
+    setNote("");
+    setDate(todayStr());
     if (params.get("new")) setParams({}, { replace: true });
   };
 
@@ -29,10 +43,15 @@ export default function Stock() {
     const n = Number(qty);
     if (!n || n <= 0) return;
     setSaving(true);
-    await addRow("damageEntries", { id: uid(), qty: n, date, note: note || undefined });
+    const row: DamageEntry = { id: editId ?? uid(), qty: n, date, note: note || undefined };
+    if (editId) await updateRow("damageEntries", row);
+    else await addRow("damageEntries", row);
     setSaving(false);
-    setQty("");
-    setNote("");
+    close();
+  };
+
+  const del = async () => {
+    if (editId) await removeRow("damageEntries", editId);
     close();
   };
 
@@ -95,26 +114,31 @@ export default function Stock() {
           </div>
         </div>
 
-        {lastDamage && (
-          <div className="alert">
-            <span className="dot" />
-            <span>
-              {t("stock.lastDamage", {
-                qty: fmtBricks(lastDamage.qty),
-                date: fmtDateFull(lastDamage.date, i18n.language)
-              })}
-              {lastDamage.note ? ` — “${lastDamage.note}”` : ""}
-            </span>
-          </div>
-        )}
-
         <button className="btn ghost" onClick={() => setOpen(true)}>
           ＋ {t("stock.recordDamaged")}
         </button>
+
+        <div className="sec">
+          <b>{t("stock.history")}</b>
+        </div>
+        {damageList.length === 0 && <Empty />}
+        {damageList.map((d) => (
+          <div className="li" key={d.id} style={{ cursor: "pointer" }} onClick={() => openEdit(d)}>
+            <div className="av">🧱</div>
+            <div className="m">
+              {fmtBricks(d.qty)} {t("common.bricks")}
+              <small>
+                {fmtDate(d.date, i18n.language)}
+                {d.note ? ` · ${d.note}` : ""}
+              </small>
+            </div>
+            <div className="r num bad">−{fmtBricks(d.qty)}</div>
+          </div>
+        ))}
       </main>
 
       {open && (
-        <Sheet title={t("stock.recordDamaged")} onClose={close}>
+        <Sheet title={editId ? t("common.edit") : t("stock.recordDamaged")} onClose={close}>
           <Field label={t("ledger.howMany")}>
             <input
               type="number"
@@ -132,6 +156,7 @@ export default function Stock() {
           <button className="btn" disabled={saving || !Number(qty)} onClick={() => void save()}>
             {t("common.save")}
           </button>
+          {editId && <DeleteButton onDelete={del} />}
         </Sheet>
       )}
     </>

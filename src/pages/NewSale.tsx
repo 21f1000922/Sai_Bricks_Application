@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useData, useDb } from "../data/DataContext";
 import { round2 } from "../lib/calc";
@@ -10,19 +10,23 @@ import { BackBar, Field, ModeChips } from "../components/ui";
 export default function NewSale() {
   const { t } = useTranslation();
   const db = useDb();
-  const { addRow } = useData();
+  const { addRow, updateRow } = useData();
   const nav = useNavigate();
+  const { id: editId } = useParams();
+  const editing = editId ? db.sales.find((s) => s.id === editId) : undefined;
 
-  const [customerId, setCustomerId] = useState("");
+  const [customerId, setCustomerId] = useState(editing?.customerId ?? "");
   const [newCustomer, setNewCustomer] = useState("");
-  const [place, setPlace] = useState("");
-  const [qty, setQty] = useState("");
-  const [rate, setRate] = useState(String(db.settings.defaultBrickPrice));
-  const [loadingPerson, setLoadingPerson] = useState("");
-  const [loadingCost, setLoadingCost] = useState("");
-  const [loadingPaid, setLoadingPaid] = useState(true);
-  const [deliveredById, setDeliveredById] = useState("");
-  const [vehicleId, setVehicleId] = useState("");
+  const [place, setPlace] = useState(editing?.place ?? "");
+  const [qty, setQty] = useState(editing ? String(editing.qty) : "");
+  const [rate, setRate] = useState(
+    editing ? String(editing.rate) : String(db.settings.defaultBrickPrice)
+  );
+  const [loadingPerson, setLoadingPerson] = useState(editing?.loadingPerson ?? "");
+  const [loadingCost, setLoadingCost] = useState(editing ? String(editing.loadingCost) : "");
+  const [loadingPaid, setLoadingPaid] = useState(editing ? editing.loadingPaid : true);
+  const [deliveredById, setDeliveredById] = useState(editing?.deliveredById ?? "");
+  const [vehicleId, setVehicleId] = useState(editing?.vehicleId ?? "");
   const [received, setReceived] = useState("");
   const [mode, setMode] = useState<PayMode>("cash");
   const [receivedById, setReceivedById] = useState("");
@@ -56,11 +60,31 @@ export default function NewSale() {
         active: true
       });
     }
+    const resolvedPlace = place.trim() || (activeCustomers.find((c) => c.id === cid)?.place ?? "");
+
+    if (editing) {
+      await updateRow("sales", {
+        ...editing,
+        customerId: cid,
+        place: resolvedPlace,
+        qty: nQty,
+        rate: nRate,
+        loadingPerson: loadingPerson.trim() || undefined,
+        loadingCost: nLoad,
+        loadingPaid: nLoad > 0 ? loadingPaid : true,
+        deliveredById: deliveredById || undefined,
+        vehicleId: vehicleId || undefined
+      });
+      setSaving(false);
+      nav(`/sales/${editing.id}`, { replace: true });
+      return;
+    }
+
     const saleId = uid();
     await addRow("sales", {
       id: saleId,
       customerId: cid,
-      place: place.trim() || (activeCustomers.find((c) => c.id === cid)?.place ?? ""),
+      place: resolvedPlace,
       qty: nQty,
       rate: nRate,
       loadingPerson: loadingPerson.trim() || undefined,
@@ -86,7 +110,11 @@ export default function NewSale() {
 
   return (
     <>
-      <BackBar to="/sales" crumb={t("sale.title")} title={t("sale.newSale")} />
+      <BackBar
+        to={editing ? `/sales/${editing.id}` : "/sales"}
+        crumb={t("sale.title")}
+        title={editing ? t("sale.editSale") : t("sale.newSale")}
+      />
       <main className="page">
         <Field label={t("sale.customer")}>
           <select
@@ -197,36 +225,40 @@ export default function NewSale() {
           </Field>
         )}
 
-        <Field label={t("sale.receivedNow")}>
-          <input type="number" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} />
-        </Field>
-        {nRecv > 0 && (
+        {!editing && (
           <>
-            <Field label={t("common.mode")}>
-              <ModeChips value={mode} onChange={setMode} />
+            <Field label={t("sale.receivedNow")}>
+              <input type="number" inputMode="decimal" value={received} onChange={(e) => setReceived(e.target.value)} />
             </Field>
-            <Field label={t("sale.receivedBy")} optional>
-              <select value={receivedById} onChange={(e) => setReceivedById(e.target.value)}>
-                <option value="">{t("common.owner")}</option>
-                {activeEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {nRecv > 0 && (
+              <>
+                <Field label={t("common.mode")}>
+                  <ModeChips value={mode} onChange={setMode} />
+                </Field>
+                <Field label={t("sale.receivedBy")} optional>
+                  <select value={receivedById} onChange={(e) => setReceivedById(e.target.value)}>
+                    <option value="">{t("common.owner")}</option>
+                    {activeEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
+            )}
+
+            <div className="calc">
+              <div className="rw due">
+                <span>{t("sale.balanceDue")}</span>
+                <b className="num">{fmtMoney(due)}</b>
+              </div>
+            </div>
           </>
         )}
 
-        <div className="calc">
-          <div className="rw due">
-            <span>{t("sale.balanceDue")}</span>
-            <b className="num">{fmtMoney(due)}</b>
-          </div>
-        </div>
-
         <button className="btn" disabled={saving || !valid} onClick={() => void save()}>
-          {t("sale.saveSale")}
+          {editing ? t("common.save") : t("sale.saveSale")}
         </button>
       </main>
     </>

@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Db, Settings } from "./types";
-import { DEFAULT_SETTINGS } from "./types";
 import type { CollectionKey, Repo, Row } from "./repo";
 import { COLLECTIONS } from "./repo";
 
@@ -50,40 +49,29 @@ export class SupabaseRepo implements Repo {
   constructor(private client: SupabaseClient) {}
 
   private async ensureFactory(): Promise<{ id: string; settings: Settings }> {
-    const { data: rows, error } = await this.client.from("factories").select("*").limit(1);
-    if (error) throw error;
-    if (rows && rows.length > 0) {
-      const f = rows[0];
-      this.factoryId = f.id as string;
-      return {
-        id: f.id,
-        settings: {
-          factoryName: f.name,
-          mfgRate: Number(f.mfg_rate),
-          battiRate: Number(f.batti_rate),
-          defaultBrickPrice: Number(f.default_brick_price),
-          thresholdOwedToLeader: Number(f.threshold_owed_to_leader),
-          thresholdLeaderOwes: Number(f.threshold_leader_owes)
-        }
-      };
-    }
-    // First login ever: bootstrap the factory with defaults.
-    const s = DEFAULT_SETTINGS;
-    const { data: created, error: insErr } = await this.client
+    // bootstrap_factory() (SECURITY DEFINER) creates the factory + owner
+    // membership on first login, or returns the existing factory id. This
+    // avoids the insert-RLS chicken-and-egg (no membership before the row exists).
+    const { data: fid, error: bErr } = await this.client.rpc("bootstrap_factory");
+    if (bErr) throw bErr;
+    this.factoryId = fid as string;
+    const { data: f, error } = await this.client
       .from("factories")
-      .insert({
-        name: s.factoryName,
-        mfg_rate: s.mfgRate,
-        batti_rate: s.battiRate,
-        default_brick_price: s.defaultBrickPrice,
-        threshold_owed_to_leader: s.thresholdOwedToLeader,
-        threshold_leader_owes: s.thresholdLeaderOwes
-      })
-      .select()
+      .select("*")
+      .eq("id", fid)
       .single();
-    if (insErr) throw insErr;
-    this.factoryId = created.id as string;
-    return { id: created.id, settings: { ...s } };
+    if (error) throw error;
+    return {
+      id: f.id,
+      settings: {
+        factoryName: f.name,
+        mfgRate: Number(f.mfg_rate),
+        battiRate: Number(f.batti_rate),
+        defaultBrickPrice: Number(f.default_brick_price),
+        thresholdOwedToLeader: Number(f.threshold_owed_to_leader),
+        thresholdLeaderOwes: Number(f.threshold_leader_owes)
+      }
+    };
   }
 
   async load(): Promise<Db> {

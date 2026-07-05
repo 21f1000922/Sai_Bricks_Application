@@ -14,6 +14,7 @@ import Procurements from "./pages/Procurements";
 import Employees from "./pages/Employees";
 import Masters from "./pages/Masters";
 import Reports from "./pages/Reports";
+import History from "./pages/History";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/ledgers/:id" element={<LedgerDetail />} />
         <Route path="/sales" element={<Sales />} />
         <Route path="/sales/new" element={<NewSale />} />
+        <Route path="/sales/:id/edit" element={<NewSale />} />
         <Route path="/sales/:id" element={<SaleDetail />} />
         <Route path="/more" element={<More />} />
         <Route path="/more/purchases" element={<Purchases />} />
@@ -85,6 +87,7 @@ export default function App() {
         <Route path="/more/employees" element={<Employees />} />
         <Route path="/more/masters" element={<Masters />} />
         <Route path="/more/reports" element={<Reports />} />
+        <Route path="/more/history" element={<History />} />
         <Route path="/more/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

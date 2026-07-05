@@ -2,15 +2,16 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useData, useDb } from "../data/DataContext";
 import { fmtDate, fmtMoney, thisMonth, todayStr, uid } from "../lib/format";
-import type { Employee, PayMode } from "../data/types";
-import { Avatar, BackBar, Empty, Field, ModeChips, Sheet } from "../components/ui";
+import type { Employee, PayMode, SalaryPayment } from "../data/types";
+import { Avatar, BackBar, DeleteButton, Empty, Field, ModeChips, Sheet } from "../components/ui";
 
 export default function Employees() {
   const { t, i18n } = useTranslation();
   const db = useDb();
-  const { addRow } = useData();
+  const { addRow, updateRow, removeRow } = useData();
 
   const [paying, setPaying] = useState<Employee | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [month, setMonth] = useState(thisMonth());
   const [mode, setMode] = useState<PayMode>("cash");
@@ -20,20 +21,52 @@ export default function Employees() {
   const active = db.employees.filter((e) => e.active);
   const log = [...db.salaryPayments].sort((a, b) => b.date.localeCompare(a.date));
 
+  const startPay = (e: Employee) => {
+    setEditId(null);
+    setPaying(e);
+    setAmount(String(e.salary));
+    setMonth(thisMonth());
+    setMode("cash");
+    setDate(todayStr());
+  };
+
+  const openEdit = (p: SalaryPayment) => {
+    const emp = db.employees.find((e) => e.id === p.employeeId);
+    if (!emp) return;
+    setEditId(p.id);
+    setPaying(emp);
+    setAmount(String(p.amount));
+    setMonth(p.month);
+    setMode(p.mode);
+    setDate(p.date);
+  };
+
+  const close = () => {
+    setPaying(null);
+    setEditId(null);
+    setAmount("");
+  };
+
   const save = async () => {
     if (!paying || !Number(amount)) return;
     setSaving(true);
-    await addRow("salaryPayments", {
-      id: uid(),
+    const row: SalaryPayment = {
+      id: editId ?? uid(),
       employeeId: paying.id,
       amount: Number(amount),
       month,
       mode,
       date
-    });
+    };
+    if (editId) await updateRow("salaryPayments", row);
+    else await addRow("salaryPayments", row);
     setSaving(false);
-    setAmount("");
-    setPaying(null);
+    close();
+  };
+
+  const del = async () => {
+    if (editId) await removeRow("salaryPayments", editId);
+    close();
   };
 
   return (
@@ -54,10 +87,7 @@ export default function Employees() {
               <button
                 className="chip on"
                 style={{ flex: "none", padding: "6px 12px" }}
-                onClick={() => {
-                  setPaying(e);
-                  setAmount(String(e.salary));
-                }}
+                onClick={() => startPay(e)}
               >
                 {t("emp.pay")}
               </button>
@@ -72,7 +102,7 @@ export default function Employees() {
         {log.map((p) => {
           const emp = db.employees.find((e) => e.id === p.employeeId);
           return (
-            <div className="li" key={p.id}>
+            <div className="li" key={p.id} style={{ cursor: "pointer" }} onClick={() => openEdit(p)}>
               <div className="av">₹</div>
               <div className="m">
                 {emp?.name}
@@ -88,7 +118,10 @@ export default function Employees() {
       </main>
 
       {paying && (
-        <Sheet title={`${t("emp.pay")} — ${paying.name}`} onClose={() => setPaying(null)}>
+        <Sheet
+          title={`${editId ? t("common.edit") : t("emp.pay")} — ${paying.name}`}
+          onClose={close}
+        >
           <Field label={t("common.amount")}>
             <input type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </Field>
@@ -104,6 +137,7 @@ export default function Employees() {
           <button className="btn" disabled={saving || !Number(amount)} onClick={() => void save()}>
             {t("common.save")}
           </button>
+          {editId && <DeleteButton onDelete={del} />}
         </Sheet>
       )}
     </>
